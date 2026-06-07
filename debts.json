@@ -1,0 +1,836 @@
+{
+  "accounts": [
+    {
+      "name": "Care Credit",
+      "balance": 41.2,
+      "history": [
+        {
+          "action": "Updated total for 2026-01",
+          "account_name": "Care Credit - 1st",
+          "amount": 4246.49,
+          "prev_amount": null,
+          "payment": null,
+          "old_type": "Other",
+          "new_type": "Other",
+          "timestamp": "2026-01-01T00:00:00"
+        },
+        {
+          "action": "Updated total for 2026-02",
+          "account_name": "Care Credit - 1st",
+          "amount": 4185.56,
+          "prev_amount": null,
+          "payment": null,
+          "old_type": "Other",
+          "new_type": "Other",
+          "timestamp": "2026-02-01T00:00:00"
+        },
+        {
+          "action": "Updated total for 2026-03",
+          "account_name": "Care Credit - 1st",
+          "amount": 4102.0,
+          "prev_amount": null,
+          "payment": null,
+          "old_type": "Other",
+          "new_type": "Other",
+          "timestamp": "2026-03-01T00:00:00"
+        },
+        {
+          "action": "Updated total for 2026-04",
+          "account_name": "Care Credit - 1st",
+          "amount": 41.2,
+          "prev_amount": null,
+          "payment": null,
+          "old_type": "Other",
+          "new_type": "Other",
+          "timestamp": "2026-04-01T00:00:00"
+        },
+        {
+          "action": "Updated type",
+          "account_name": "Care Credit - 1st",
+          "amount": 41.2,
+          "prev_amount": 41.2,
+          "payment": null,
+          "old_type": "Other",
+          "new_type": "Credit Card",
+          "timestamp": "2026-06-06T22:19:34.978618"
+        },
+        {
+          "action": "Updated name",
+          "account_name": "Care Credit",
+          "amount": 41.2,
+          "prev_amount": null,
+          "old_name": "Care Credit - 1st",
+          "new_name": "Care Credit",
+          "old_type": "Credit Card",
+          "new_type": "Credit Card",
+          "old_due_date": "",
+          "new_due_date": "1st",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:00:54.771599"
+        },
+        {
+          "action": "Updated owner",
+          "account_name": "Care Credit",
+          "amount": 41.2,
+          "prev_amount": null,
+          "old_name": "Care Credit",
+          "new_name": "Care Credit",
+          "old_type": "Credit Card",
+          "new_type": "Credit Card",
+          "old_due_date": "1st",
+          "new_due_date": "1st",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:13:28.358088"
+        }
+      ],
+      "type": "Credit Card",
+      "due_date": "1st",
+      "interest_rate": null,
+      "owner": "Tanya"
+    },
+    {
+      "name": "Apple Card",
+      "balance": 0.0,
+      "type": "Credit Card",
+      "due_date": "last",
+      "interest_rate": null,
+      "history": [
+        {
+          "action": "Updated name and type",
+          "account_name": "Apple (Tanya)",
+          "amount": 0.0,
+          "prev_amount": null,
+          "old_name": "Apple - 30th",
+          "new_name": "Apple (Tanya)",
+          "old_type": "Other",
+          "new_type": "Credit Card",
+          "old_due_date": "",
+          "new_due_date": "last",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:01:30.246371"
+        },
+        {
+          "action": "Updated name",
+          "account_name": "Apple Card",
+          "amount": 0.0,
+          "prev_amount": null,
+          "old_name": "Apple (Tanya)",
+          "new_name": "Apple Card",
+          "old_type": "Credit Card",
+          "new_type": "Credit Card",
+          "old_due_date": "last",
+          "new_due_date": "last",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:13:47.328069"
+        }
+      ],
+      "owner": "Tanya"
+    },
+    {
+      "name": "Chase",
+      "balance": 1234.56,
+      "type": "Credit Card",
+      "history": [
+        {
+          "amount": 1234.56,
+          "timestamp": "2026-06-06T17:37:43.188725"
+        },
+        {
+          "action": "Updated name",
+          "account_name": "Chase",
+          "amount": 1234.56,
+          "prev_amount": null,
+          "old_name": "Chase - 26th",
+          "new_name": "Chase",
+          "old_type": "Credit Card",
+          "new_type": "Credit Card",
+          "timestamp": "2026-06-06T17:49:49.464527"
+        },
+        {
+          "action": "Updated due date",
+          "account_name": "Chase",
+          "amount": 1234.56,
+          "prev_amount": null,
+          "old_name": "Chase",
+          "new_name": "Chase",
+          "old_type": "Credit Card",
+          "new_type": "Credit Card",
+          "old_due_date": "",
+          "new_due_date": "1st",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:13:57.121002"
+        },
+        {
+          "action": "Updated due date",
+          "account_name": "Chase",
+          "amount": 1234.56,
+          "prev_amount": null,
+          "old_name": "Chase",
+          "new_name": "Chase",
+          "old_type": "Credit Card",
+          "new_type": "Credit Card",
+          "old_due_date": "1st",
+          "new_due_date": "26",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:34:00.405873"
+        },
+        {
+          "action": "Updated due date",
+          "account_name": "Chase",
+          "amount": 1234.56,
+          "prev_amount": null,
+          "old_name": "Chase",
+          "new_name": "Chase",
+          "old_type": "Credit Card",
+          "new_type": "Credit Card",
+          "old_due_date": "26",
+          "new_due_date": "26th",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:34:30.220498"
+        },
+        {
+          "action": "Updated due date",
+          "account_name": "Chase",
+          "amount": 1234.56,
+          "prev_amount": null,
+          "old_name": "Chase",
+          "new_name": "Chase",
+          "old_type": "Credit Card",
+          "new_type": "Credit Card",
+          "old_due_date": "26th",
+          "new_due_date": "26",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:51:39.353647"
+        }
+      ],
+      "owner": "Tanya",
+      "due_date": "26",
+      "interest_rate": null
+    },
+    {
+      "name": "Capital One",
+      "balance": 0.0,
+      "type": "Other",
+      "due_date": "1st",
+      "interest_rate": null,
+      "history": [
+        {
+          "action": "Updated name",
+          "account_name": "Capital One (Tanya)",
+          "amount": 0.0,
+          "prev_amount": null,
+          "old_name": "Capital one - 20th",
+          "new_name": "Capital One (Tanya)",
+          "old_type": "Other",
+          "new_type": "Other",
+          "old_due_date": "",
+          "new_due_date": "",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:00:32.278544"
+        },
+        {
+          "action": "Updated name",
+          "account_name": "Capital One",
+          "amount": 0.0,
+          "prev_amount": null,
+          "old_name": "Capital One (Tanya)",
+          "new_name": "Capital One",
+          "old_type": "Other",
+          "new_type": "Other",
+          "old_due_date": "",
+          "new_due_date": "1st",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:14:12.471176"
+        }
+      ],
+      "owner": "Tanya",
+      "archived": true
+    },
+    {
+      "name": "MACU CC",
+      "balance": 0.0,
+      "type": "Other",
+      "owner": "Tanya",
+      "due_date": "last",
+      "interest_rate": null,
+      "history": [
+        {
+          "action": "Updated name",
+          "account_name": "MACU CC",
+          "amount": 0.0,
+          "prev_amount": null,
+          "old_name": "MACU CC - 30th",
+          "new_name": "MACU CC",
+          "old_type": "Other",
+          "new_type": "Other",
+          "old_due_date": "",
+          "new_due_date": "last",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:14:33.801870"
+        }
+      ],
+      "archived": false
+    },
+    {
+      "name": "Telluride",
+      "balance": 31554.14,
+      "type": "Car Loan",
+      "history": [
+        {
+          "action": "Updated name",
+          "account_name": "MACU (Tanya's Car)",
+          "amount": 31554.14,
+          "prev_amount": null,
+          "old_name": "MACU Car - 27th",
+          "new_name": "MACU (Tanya's Car)",
+          "old_type": "Car Loan",
+          "new_type": "Car Loan",
+          "timestamp": "2026-06-06T17:49:06.449205"
+        },
+        {
+          "action": "Updated name",
+          "account_name": "Telluride",
+          "amount": 31554.14,
+          "prev_amount": null,
+          "old_name": "MACU (Tanya's Car)",
+          "new_name": "Telluride",
+          "old_type": "Car Loan",
+          "new_type": "Car Loan",
+          "old_due_date": "",
+          "new_due_date": "1st",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:14:59.956873"
+        },
+        {
+          "action": "Updated due date",
+          "account_name": "Telluride",
+          "amount": 31554.14,
+          "prev_amount": null,
+          "old_name": "Telluride",
+          "new_name": "Telluride",
+          "old_type": "Car Loan",
+          "new_type": "Car Loan",
+          "old_due_date": "1st",
+          "new_due_date": "27",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:53:27.735276"
+        }
+      ],
+      "owner": "Tanya",
+      "due_date": "27",
+      "interest_rate": null
+    },
+    {
+      "name": "MACU Loan (South Africa)",
+      "balance": 0.0,
+      "type": "Other",
+      "owner": "Tanya",
+      "due_date": "15th",
+      "interest_rate": null,
+      "history": [
+        {
+          "action": "Updated name",
+          "account_name": "MACU Loan (South Africa)",
+          "amount": 0.0,
+          "prev_amount": null,
+          "old_name": "MACU Loan - 15th",
+          "new_name": "MACU Loan (South Africa)",
+          "old_type": "Other",
+          "new_type": "Other",
+          "old_due_date": "",
+          "new_due_date": "15th",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:15:35.302535"
+        }
+      ],
+      "archived": true
+    },
+    {
+      "name": "CitiBank (Costco)",
+      "balance": 0.0,
+      "type": "Credit Card",
+      "owner": "Eric",
+      "due_date": "1st",
+      "interest_rate": null,
+      "history": [
+        {
+          "action": "Updated name and type",
+          "account_name": "CitiBank (Costco)",
+          "amount": 0.0,
+          "prev_amount": null,
+          "old_name": "CitiBank",
+          "new_name": "CitiBank (Costco)",
+          "old_type": "Other",
+          "new_type": "Credit Card",
+          "old_due_date": "",
+          "new_due_date": "1st",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:16:01.610606"
+        }
+      ],
+      "archived": true
+    },
+    {
+      "name": "Apple Card",
+      "balance": 0.0,
+      "type": "Credit Card",
+      "history": [
+        {
+          "amount": 27.96,
+          "timestamp": "2026-06-06T17:34:40.067036"
+        },
+        {
+          "action": "Updated balance",
+          "account_name": "Apple",
+          "amount": 0.0,
+          "prev_amount": 27.96,
+          "old_type": "Credit Card",
+          "new_type": "Credit Card",
+          "timestamp": "2026-06-06T17:54:48.902929"
+        },
+        {
+          "action": "Updated name",
+          "account_name": "Apple Card",
+          "amount": 0.0,
+          "prev_amount": null,
+          "old_name": "Apple",
+          "new_name": "Apple Card",
+          "old_type": "Credit Card",
+          "new_type": "Credit Card",
+          "old_due_date": "",
+          "new_due_date": "1st",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:16:32.418343"
+        }
+      ],
+      "owner": "Eric",
+      "due_date": "1st",
+      "interest_rate": null
+    },
+    {
+      "name": "Robinhood (credit card)",
+      "balance": 1140.95,
+      "type": "Credit Card",
+      "paid_month": "2026-06",
+      "owner": "Eric",
+      "due_date": "last",
+      "category": "debt",
+      "interest_rate": null,
+      "min_payment": 40.0,
+      "history": [
+        {
+          "action": "Updated due date",
+          "account_name": "Robinhood (credit card)",
+          "amount": 1140.95,
+          "prev_amount": null,
+          "old_name": "Robinhood (credit card)",
+          "new_name": "Robinhood (credit card)",
+          "old_type": "Credit Card",
+          "new_type": "Credit Card",
+          "old_due_date": "",
+          "new_due_date": "last",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-07T05:49:34.446275"
+        }
+      ]
+    },
+    {
+      "name": "Kay Jewlers",
+      "balance": 4851.87,
+      "type": "Credit Card",
+      "owner": "",
+      "due_date": "17",
+      "category": "debt",
+      "interest_rate": null,
+      "history": [
+        {
+          "action": "Updated due date",
+          "account_name": "Kay Jewlers",
+          "amount": 4851.87,
+          "prev_amount": null,
+          "old_name": "Kay Jewlers",
+          "new_name": "Kay Jewlers",
+          "old_type": "Credit Card",
+          "new_type": "Credit Card",
+          "old_due_date": "",
+          "new_due_date": "17",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-07T00:24:06.131084"
+        },
+        {
+          "action": "Updated account",
+          "account_name": "Kay Jewlers",
+          "amount": 4851.87,
+          "prev_amount": null,
+          "old_name": "Kay Jewlers",
+          "new_name": "Kay Jewlers",
+          "old_type": "Credit Card",
+          "new_type": "Credit Card",
+          "old_due_date": "17",
+          "new_due_date": "17",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-07T01:25:12.333948"
+        },
+        {
+          "action": "Updated account",
+          "account_name": "Kay Jewlers",
+          "amount": 4851.87,
+          "prev_amount": null,
+          "old_name": "Kay Jewlers",
+          "new_name": "Kay Jewlers",
+          "old_type": "Credit Card",
+          "new_type": "Credit Card",
+          "old_due_date": "17",
+          "new_due_date": "17",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-07T01:25:35.102644"
+        }
+      ],
+      "min_payment": 176.0
+    },
+    {
+      "name": "Matress Firm",
+      "balance": 2737.16,
+      "type": "Credit Card",
+      "owner": "",
+      "due_date": "20",
+      "category": "debt",
+      "interest_rate": null,
+      "history": [
+        {
+          "action": "Updated due date",
+          "account_name": "Matress Firm",
+          "amount": 2737.16,
+          "prev_amount": null,
+          "old_name": "Matress Firm",
+          "new_name": "Matress Firm",
+          "old_type": "Credit Card",
+          "new_type": "Credit Card",
+          "old_due_date": "",
+          "new_due_date": "20",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-07T00:23:28.404093"
+        },
+        {
+          "action": "Updated account",
+          "account_name": "Matress Firm",
+          "amount": 2737.16,
+          "prev_amount": null,
+          "old_name": "Matress Firm",
+          "new_name": "Matress Firm",
+          "old_type": "Credit Card",
+          "new_type": "Credit Card",
+          "old_due_date": "20",
+          "new_due_date": "20",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-07T01:26:29.002312"
+        }
+      ],
+      "min_payment": 91.0
+    },
+    {
+      "name": "Nordictrack",
+      "balance": 597.72,
+      "type": "Credit Card"
+    },
+    {
+      "name": "MACU CC",
+      "balance": 0.0,
+      "type": "Credit Card",
+      "due_date": "last",
+      "interest_rate": null,
+      "history": [
+        {
+          "action": "Updated name",
+          "account_name": "MACU CC (Eric)",
+          "amount": 0.0,
+          "prev_amount": null,
+          "old_name": "MACU CC",
+          "new_name": "MACU CC (Eric)",
+          "old_type": "Other",
+          "new_type": "Other",
+          "old_due_date": "",
+          "new_due_date": "",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:07:12.618526"
+        },
+        {
+          "action": "Updated name and type",
+          "account_name": "MACU CC",
+          "amount": 0.0,
+          "prev_amount": null,
+          "old_name": "MACU CC (Eric)",
+          "new_name": "MACU CC",
+          "old_type": "Other",
+          "new_type": "Credit Card",
+          "old_due_date": "",
+          "new_due_date": "last",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-07T00:21:19.698962"
+        }
+      ],
+      "owner": "Eric",
+      "category": "debt"
+    },
+    {
+      "name": "MACU Loan",
+      "balance": 53863.83,
+      "type": "Personal Loan",
+      "history": [
+        {
+          "action": "Recorded payment",
+          "account_name": "MACU Loan",
+          "amount": 52863.83,
+          "prev_amount": 53863.83,
+          "payment": 1000.0,
+          "old_type": "Personal Loan",
+          "new_type": "Personal Loan",
+          "timestamp": "2026-06-06T17:58:53.493872"
+        },
+        {
+          "action": "Recorded payment",
+          "account_name": "MACU Loan",
+          "amount": 52663.83,
+          "prev_amount": 52863.83,
+          "payment": 200.0,
+          "old_type": "Personal Loan",
+          "new_type": "Personal Loan",
+          "timestamp": "2026-06-06T18:05:50.158866"
+        },
+        {
+          "action": "Updated due date and interest rate",
+          "account_name": "MACU Loan",
+          "amount": 52663.83,
+          "prev_amount": null,
+          "old_name": "MACU Loan",
+          "new_name": "MACU Loan",
+          "old_type": "Personal Loan",
+          "new_type": "Personal Loan",
+          "old_due_date": "",
+          "new_due_date": "1st",
+          "old_interest_rate": null,
+          "new_interest_rate": 23.0,
+          "timestamp": "2026-06-06T18:17:28.847356"
+        },
+        {
+          "action": "Updated interest rate",
+          "account_name": "MACU Loan",
+          "amount": 52663.83,
+          "prev_amount": null,
+          "old_name": "MACU Loan",
+          "new_name": "MACU Loan",
+          "old_type": "Personal Loan",
+          "new_type": "Personal Loan",
+          "old_due_date": "1st",
+          "new_due_date": "1st",
+          "old_interest_rate": 23.0,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:52:51.266392"
+        },
+        {
+          "action": "Updated due date",
+          "account_name": "MACU Loan",
+          "amount": 52663.83,
+          "prev_amount": null,
+          "old_name": "MACU Loan",
+          "new_name": "MACU Loan",
+          "old_type": "Personal Loan",
+          "new_type": "Personal Loan",
+          "old_due_date": "1st",
+          "new_due_date": "13",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-07T00:24:33.003123"
+        },
+        {
+          "action": "Updated interest rate",
+          "account_name": "MACU Loan",
+          "amount": 53863.83,
+          "prev_amount": null,
+          "old_name": "MACU Loan",
+          "new_name": "MACU Loan",
+          "old_type": "Personal Loan",
+          "new_type": "Personal Loan",
+          "old_due_date": "13",
+          "new_due_date": "13",
+          "old_interest_rate": null,
+          "new_interest_rate": 13.99,
+          "timestamp": "2026-06-07T01:16:49.272018"
+        }
+      ],
+      "due_date": "13",
+      "interest_rate": 13.99,
+      "paid_month": "2026-06",
+      "owner": "Eric",
+      "category": "debt",
+      "min_payment": 1137.12
+    },
+    {
+      "name": "Silverado",
+      "balance": 36911.19,
+      "type": "Car Loan",
+      "owner": "Eric",
+      "due_date": "13",
+      "interest_rate": null,
+      "history": [
+        {
+          "action": "Created account",
+          "account_name": "Silverado",
+          "amount": 36911.19,
+          "prev_amount": null,
+          "new_type": "Car Loan",
+          "new_due_date": "13th",
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:45:03.264748"
+        },
+        {
+          "action": "Updated due date",
+          "account_name": "Silverado",
+          "amount": 36911.19,
+          "prev_amount": null,
+          "old_name": "Silverado",
+          "new_name": "Silverado",
+          "old_type": "Car Loan",
+          "new_type": "Car Loan",
+          "old_due_date": "13th",
+          "new_due_date": "13",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-06T23:53:05.870554"
+        },
+        {
+          "action": "Updated account",
+          "account_name": "Silverado",
+          "amount": 36911.19,
+          "prev_amount": null,
+          "old_name": "Silverado",
+          "new_name": "Silverado",
+          "old_type": "Car Loan",
+          "new_type": "Car Loan",
+          "old_due_date": "13",
+          "new_due_date": "13",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-07T01:23:53.483656"
+        }
+      ],
+      "paid_month": "2026-06",
+      "category": "debt",
+      "min_payment": 614.57
+    },
+    {
+      "name": "Child Support",
+      "category": "recurring",
+      "type": "Other",
+      "owner": "Eric",
+      "due_date": "1",
+      "history": [
+        {
+          "action": "Created account",
+          "account_name": "Child Support",
+          "timestamp": "2026-06-07T00:07:51.975461"
+        },
+        {
+          "action": "Updated due date",
+          "account_name": "Child Support",
+          "amount": 0.0,
+          "prev_amount": null,
+          "old_name": "Child Support",
+          "new_name": "Child Support",
+          "old_type": "Other",
+          "new_type": "Other",
+          "old_due_date": "1st",
+          "new_due_date": "1",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-07T00:22:06.351783"
+        }
+      ],
+      "recurring_amount": 416.0,
+      "recurring_frequency": "semi-monthly",
+      "balance": 0.0,
+      "interest_rate": null,
+      "due_date_2": "15",
+      "paid_month": "2026-06"
+    },
+    {
+      "name": "Johnson Elite (Braces)",
+      "category": "debt",
+      "type": "Other",
+      "owner": "Eric",
+      "due_date": "1st",
+      "history": [
+        {
+          "action": "Created account",
+          "account_name": "Johnson Elite (Braces)",
+          "timestamp": "2026-06-07T00:45:21.853015"
+        },
+        {
+          "action": "Updated account",
+          "account_name": "Johnson Elite (Braces)",
+          "amount": 333.5,
+          "prev_amount": null,
+          "old_name": "Johnson Elite (Braces)",
+          "new_name": "Johnson Elite (Braces)",
+          "old_type": "Other",
+          "new_type": "Other",
+          "old_due_date": "1st",
+          "new_due_date": "1st",
+          "old_interest_rate": null,
+          "new_interest_rate": null,
+          "timestamp": "2026-06-07T05:44:32.781187"
+        }
+      ],
+      "balance": 333.5,
+      "interest_rate": null,
+      "paid_month": "2026-06",
+      "min_payment": 85.0
+    },
+    {
+      "name": "HOA (Evans Ranch)",
+      "category": "recurring",
+      "type": "Other",
+      "owner": "Eric",
+      "due_date": "1st",
+      "due_date_2": null,
+      "history": [
+        {
+          "action": "Created account",
+          "account_name": "HOA (Evans Ranch)",
+          "timestamp": "2026-06-07T05:46:48.967742"
+        }
+      ],
+      "recurring_amount": 78.0,
+      "recurring_frequency": "monthly",
+      "balance": 0.0,
+      "interest_rate": null
+    }
+  ],
+  "settings": {
+    "show_zero": true
+  }
+}
