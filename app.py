@@ -10,6 +10,7 @@ import csv
 import io
 import sqlite3
 from urllib.parse import urlencode
+from urllib.parse import parse_qs
 from jinja2 import Template
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -60,6 +61,15 @@ def render_template_string(template, **context):
     context.setdefault('url_for', url_for)
     context.setdefault('request', None)
     return Template(template).render(**context)
+
+
+async def read_form_data(request: Request):
+    try:
+        return await request.form()
+    except AssertionError:
+        body = await request.body()
+        parsed = parse_qs(body.decode('utf-8'))
+        return {k: v[-1] if v else '' for k, v in parsed.items()}
 
 
 def jsonify(data):
@@ -237,10 +247,6 @@ TEMPLATE = """
       body.privacy-mode .sensitive-input { color: transparent !important; text-shadow: 0 0 10px currentColor; caret-color: transparent; }
       body.privacy-mode .sensitive-input::placeholder { color: transparent !important; }
       body.privacy-mode .chart-card, body.privacy-mode canvas { display:none !important; }
-      .month-tab-btn { padding:5px 14px;border-radius:999px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-muted);cursor:pointer;font-weight:600;font-size:0.85rem;transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
-      .month-tab-btn.current { background:#2563eb; color:#fff; border-color:transparent; box-shadow:0 10px 20px rgba(37,99,235,0.22); transform: translateY(-1px) scale(1.03); font-size:0.92rem; padding:7px 16px; }
-      .month-tab-btn:not(.current) { opacity:0.78; }
-      .month-tab-btn:hover { transform: translateY(-1px); }
       .nav-button { padding:0.75rem 1rem; border-radius:0.75rem; border:1px solid var(--border); background:var(--surface); color:var(--text); text-decoration:none; font-weight:700; }
       .nav-button.active { background:#2563eb; color:#fff; border-color:transparent; }
       .chart-card { margin-top: 1.5rem; padding: 1rem; background: var(--surface-2); border-radius: 1rem; border: 1px solid var(--border); }
@@ -334,130 +340,58 @@ TEMPLATE = """
             <a href="{{ url_for('index', sort=sort_by, order=order, view=view_mode, hide_paid='0' if hide_paid else '1') }}" style="font-size:0.82rem;font-weight:600;padding:4px 12px;border-radius:999px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-muted);text-decoration:none;">{{ 'Show paid' if hide_paid else 'Hide paid' }}</a>
           </div>
 
-          <div style="display:flex;gap:0.5rem;margin-top:1rem;flex-wrap:wrap;">
-            <button id="dash-tab-btn-monthly" type="button" onclick="switchDashTab('monthly')" style="padding:5px 18px;border-radius:999px;border:none;cursor:pointer;font-weight:600;font-size:0.9rem;">Monthly</button>
-            <button id="dash-tab-btn-outstanding" type="button" onclick="switchDashTab('outstanding')" style="padding:5px 18px;border-radius:999px;border:none;cursor:pointer;font-weight:600;font-size:0.9rem;">Outstanding</button>
+          {% set ns = namespace(monthly_total=0) %}
+          {% for account in accounts %}{% if account.category == 'recurring' %}{% set ns.monthly_total = ns.monthly_total + (account.recurring_amount or 0) %}{% elif account.min_payment %}{% set ns.monthly_total = ns.monthly_total + account.min_payment %}{% endif %}{% endfor %}
+          <div style="font-size:0.9rem;color:var(--text-muted);margin-top:0.75rem;">Monthly obligations: <strong class="sensitive" style="color:var(--text);">${{ "%.2f"|format(ns.monthly_total) }}</strong></div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:0.75rem;font-weight:700;margin-top:12px;margin-bottom:6px;align-items:center;color:var(--text-muted);">
+            <div role="button" onclick="sortBy('name')" style="cursor:pointer;display:flex;align-items:center;gap:8px;">Name {% if sort_by == 'name' %}<span style="font-size:0.85rem;color:var(--text-dim);">{{ '↓' if order == 'desc' else '↑' }}</span>{% endif %}</div>
+            <div role="button" onclick="sortBy('type')" style="cursor:pointer;display:flex;align-items:center;gap:8px;">Type {% if sort_by == 'type' %}<span style="font-size:0.85rem;color:var(--text-dim);">{{ '↓' if order == 'desc' else '↑' }}</span>{% endif %}</div>
+            <div role="button" onclick="sortBy('due_date')" style="cursor:pointer;display:flex;align-items:center;gap:8px;">Due {% if sort_by == 'due_date' %}<span style="font-size:0.85rem;color:var(--text-dim);">{{ '↓' if order == 'desc' else '↑' }}</span>{% endif %}</div>
+            <div role="button" onclick="sortBy('amount')" style="cursor:pointer;text-align:right;display:flex;justify-content:flex-end;align-items:center;gap:8px;">{% if sort_by == 'amount' %}<span style="font-size:0.85rem;color:var(--text-dim);">{{ '↓' if order == 'desc' else '↑' }}</span>{% endif %}Outstanding</div>
+            <div style="text-align:right;font-weight:700;">Monthly</div>
           </div>
-
-          <div style="display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap;">
-            {% for month in month_tabs %}
-              <button type="button" class="month-tab-btn" data-month="{{ month.key }}" onclick="switchMonthTab('{{ month.key }}')">{{ month.label }}</button>
+          <form method="post">
+            {% for account in accounts %}
+            <div class="account-row month-account-row" role="button" tabindex="0" data-idx="{{ account.orig_idx }}" data-account-name="{{ account.name|e }}" data-account-type="{{ account.type or 'Other' }}" data-account-category="{{ account.category or 'debt' }}" data-balance="{{ account.balance|float }}" data-min-payment="{{ account.min_payment|default('', true) }}" data-recurring-amount="{{ account.recurring_amount|default('', true) }}" data-recurring-frequency="{{ account.recurring_frequency or '' }}" data-paid="{{ 'true' if account.paid_this_month else 'false' }}" data-paid1="{{ 'true' if account.paid_1_this_month else 'false' }}" data-paid2="{{ 'true' if account.paid_2_this_month else 'false' }}" data-date1="{{ account.due_date or '' }}" data-date2="{{ account.due_date_2 or '' }}" data-last-updated="{{ account.last_updated or '' }}" data-month-status="{{ account.paid_status_by_month|default({}, true)|tojson }}" style="border-left:6px solid {{ type_colors.get(account.type, '#64748b') }};grid-template-columns:2fr 1fr 1fr 1fr 1fr;cursor:pointer;">
+              <div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <strong>{{ account.name }}</strong>
+                  {% if account.category == 'recurring' %}<span class="sensitive" style="font-size:0.72rem;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--surface);border:1px solid var(--border);color:var(--text-muted);">Recurring</span>{% endif %}
+                  <span class="month-status-badge" data-category="{{ account.category }}" data-semi="{{ 'true' if account.recurring_frequency == 'semi-monthly' else 'false' }}" data-paid1-current="{{ 'true' if account.paid_1_this_month else 'false' }}" data-paid2-current="{{ 'true' if account.paid_2_this_month else 'false' }}" data-balance="{{ account.balance|float }}" style="font-size:0.72rem;font-weight:700;padding:2px 7px;border-radius:999px;letter-spacing:0.03em;"></span>
+                </div>
+                {% if account.interest_rate %}
+                  <div style="font-size:0.85rem;color:var(--text-muted);margin-top:3px;">{{ account.interest_rate }}% APR</div>
+                {% endif %}
+              </div>
+              <div style="font-weight:600;color:var(--text-muted);">{{ account.type or 'Other' }}</div>
+              <div style="color:var(--text-muted);">
+                {% if account.days_until is not none %}
+                  {% if account.days_until == 0 %}
+                    {% set badge_bg = '#dc2626' %}{% set badge_text = 'white' %}{% set due_label = 'Today' %}
+                  {% elif account.days_until <= 3 %}
+                    {% set badge_bg = '#dc2626' %}{% set badge_text = 'white' %}{% set due_label = 'In ' ~ account.days_until ~ ' day' ~ ('s' if account.days_until != 1 else '') %}
+                  {% elif account.days_until <= 7 %}
+                    {% set badge_bg = '#f59e0b' %}{% set badge_text = 'white' %}{% set due_label = 'In ' ~ account.days_until ~ ' days' %}
+                  {% else %}
+                    {% set badge_bg = 'var(--surface)' %}{% set badge_text = 'var(--text-muted)' %}{% set due_label = 'In ' ~ account.days_until ~ ' days' %}
+                  {% endif %}
+                  <div style="font-size:0.8rem;font-weight:700;padding:2px 8px;border-radius:999px;background:{{ badge_bg }};color:{{ badge_text }};display:inline-block;">{{ due_label }}</div>
+                  <div style="font-size:0.78rem;color:var(--text-dim);margin-top:2px;">
+                    {% if account.due_dates_label %}{{ account.due_dates_label }}{% else %}{{ account.next_due_date }}{% endif %}
+                  </div>
+                {% else %}
+                  {{ account.due_date or '—' }}
+                {% endif %}
+              </div>
+              <div class="sensitive" style="font-size:0.78rem;font-weight:700;color:var(--text);text-align:right;align-self:start;">
+                ${{ "%.2f"|format(account.balance|float) }}
+              </div>
+              <div class="sensitive" style="font-size:0.78rem;font-weight:700;color:var(--text);text-align:right;align-self:start;">
+                ${{ "%.2f"|format((account.recurring_amount if account.category == 'recurring' else account.min_payment) or 0) }}
+              </div>
+            </div>
             {% endfor %}
-          </div>
-
-          <!-- Monthly tab: all accounts, amount = min_payment / recurring_amount -->
-          <div id="dash-tab-monthly">
-            {% set ns = namespace(monthly_total=0) %}
-            {% for account in accounts %}{% if account.category == 'recurring' %}{% set ns.monthly_total = ns.monthly_total + (account.recurring_amount or 0) %}{% elif account.min_payment %}{% set ns.monthly_total = ns.monthly_total + account.min_payment %}{% endif %}{% endfor %}
-            <div style="font-size:0.9rem;color:var(--text-muted);margin-top:0.75rem;">Monthly obligations: <strong class="sensitive" style="color:var(--text);">${{ "%.2f"|format(ns.monthly_total) }}</strong></div>
-            <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 0.8fr;gap:0.75rem;font-weight:700;margin-top:12px;margin-bottom:6px;align-items:center;color:var(--text-muted);">
-              <div role="button" onclick="sortBy('name')" style="cursor:pointer;display:flex;align-items:center;gap:8px;">Name {% if sort_by == 'name' %}<span style="font-size:0.85rem;color:var(--text-dim);">{{ '↓' if order == 'desc' else '↑' }}</span>{% endif %}</div>
-              <div role="button" onclick="sortBy('type')" style="cursor:pointer;display:flex;align-items:center;gap:8px;">Type {% if sort_by == 'type' %}<span style="font-size:0.85rem;color:var(--text-dim);">{{ '↓' if order == 'desc' else '↑' }}</span>{% endif %}</div>
-              <div role="button" onclick="sortBy('due_date')" style="cursor:pointer;display:flex;align-items:center;gap:8px;">Due {% if sort_by == 'due_date' %}<span style="font-size:0.85rem;color:var(--text-dim);">{{ '↓' if order == 'desc' else '↑' }}</span>{% endif %}</div>
-              <div style="text-align:right;font-weight:700;">Monthly</div>
-              <div></div>
-            </div>
-            <form method="post">
-              {% for account in accounts %}
-              <div class="account-row month-account-row" role="button" tabindex="0" data-idx="{{ account.orig_idx }}" data-account-name="{{ account.name|e }}" data-account-type="{{ account.type or 'Other' }}" data-account-category="{{ account.category or 'debt' }}" data-balance="{{ account.balance|float }}" data-min-payment="{{ account.min_payment|default('', true) }}" data-recurring-amount="{{ account.recurring_amount|default('', true) }}" data-recurring-frequency="{{ account.recurring_frequency or '' }}" data-paid="{{ 'true' if account.paid_this_month else 'false' }}" data-paid1="{{ 'true' if account.paid_1_this_month else 'false' }}" data-paid2="{{ 'true' if account.paid_2_this_month else 'false' }}" data-date1="{{ account.due_date or '' }}" data-date2="{{ account.due_date_2 or '' }}" data-last-updated="{{ account.last_updated or '' }}" data-month-status="{{ account.paid_status_by_month|tojson }}" style="border-left:6px solid {{ type_colors.get(account.type, '#64748b') }};grid-template-columns:2fr 1fr 1fr 1fr 0.8fr;cursor:pointer;">
-                <div>
-                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <strong>{{ account.name }}</strong>
-                    {% if account.category == 'recurring' %}<span class="sensitive" style="font-size:0.72rem;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--surface);border:1px solid var(--border);color:var(--text-muted);">Recurring</span>{% endif %}
-                    <span class="month-status-badge" data-category="{{ account.category }}" data-semi="{{ 'true' if account.recurring_frequency == 'semi-monthly' else 'false' }}" data-paid1-current="{{ 'true' if account.paid_1_this_month else 'false' }}" data-paid2-current="{{ 'true' if account.paid_2_this_month else 'false' }}" data-balance="{{ account.balance|float }}" style="font-size:0.72rem;font-weight:700;padding:2px 7px;border-radius:999px;letter-spacing:0.03em;"></span>
-                  </div>
-                  {% if account.interest_rate %}
-                    <div style="font-size:0.85rem;color:var(--text-muted);margin-top:3px;">{{ account.interest_rate }}% APR</div>
-                  {% endif %}
-                </div>
-                <div style="font-weight:600;color:var(--text-muted);">{{ account.type or 'Other' }}</div>
-                <div style="color:var(--text-muted);">
-                  {% if account.days_until is not none %}
-                    {% if account.days_until == 0 %}
-                      {% set badge_bg = '#dc2626' %}{% set badge_text = 'white' %}{% set due_label = 'Today' %}
-                    {% elif account.days_until <= 3 %}
-                      {% set badge_bg = '#dc2626' %}{% set badge_text = 'white' %}{% set due_label = 'In ' ~ account.days_until ~ ' day' ~ ('s' if account.days_until != 1 else '') %}
-                    {% elif account.days_until <= 7 %}
-                      {% set badge_bg = '#f59e0b' %}{% set badge_text = 'white' %}{% set due_label = 'In ' ~ account.days_until ~ ' days' %}
-                    {% else %}
-                      {% set badge_bg = 'var(--surface)' %}{% set badge_text = 'var(--text-muted)' %}{% set due_label = 'In ' ~ account.days_until ~ ' days' %}
-                    {% endif %}
-                    <div style="font-size:0.8rem;font-weight:700;padding:2px 8px;border-radius:999px;background:{{ badge_bg }};color:{{ badge_text }};display:inline-block;">{{ due_label }}</div>
-                    <div style="font-size:0.78rem;color:var(--text-dim);margin-top:2px;">
-                      {% if account.due_dates_label %}{{ account.due_dates_label }}{% else %}{{ account.next_due_date }}{% endif %}
-                    </div>
-                  {% else %}
-                    {{ account.due_date or '—' }}
-                  {% endif %}
-                </div>
-                <div style="font-size:0.78rem;color:var(--text-dim);text-align:right;align-self:start;">Open</div>
-                <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
-                  <a href="{{ url_for('account_page', idx=account.orig_idx, return_to='dashboard') }}" style="font-size:0.8rem;color:var(--text-muted);text-decoration:none;display:flex;align-items:center;gap:3px;" title="Edit account" onclick="event.stopPropagation();">✎ Edit</a>
-                </div>
-              </div>
-              {% endfor %}
-            </form>
-          </div>
-
-          <!-- Outstanding tab: debt accounts only, shows balance -->
-          <div id="dash-tab-outstanding" style="display:none;">
-            <div style="font-size:0.9rem;color:var(--text-muted);margin-top:0.75rem;">Total outstanding: <strong class="sensitive" style="color:var(--text);">${{ "%.2f"|format(total) }}</strong></div>
-            <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 0.8fr;gap:0.75rem;font-weight:700;margin-top:12px;margin-bottom:6px;align-items:center;color:var(--text-muted);">
-              <div role="button" onclick="sortBy('name')" style="cursor:pointer;display:flex;align-items:center;gap:8px;">Name {% if sort_by == 'name' %}<span style="font-size:0.85rem;color:var(--text-dim);">{{ '↓' if order == 'desc' else '↑' }}</span>{% endif %}</div>
-              <div role="button" onclick="sortBy('type')" style="cursor:pointer;display:flex;align-items:center;gap:8px;">Type {% if sort_by == 'type' %}<span style="font-size:0.85rem;color:var(--text-dim);">{{ '↓' if order == 'desc' else '↑' }}</span>{% endif %}</div>
-              <div role="button" onclick="sortBy('due_date')" style="cursor:pointer;display:flex;align-items:center;gap:8px;">Due {% if sort_by == 'due_date' %}<span style="font-size:0.85rem;color:var(--text-dim);">{{ '↓' if order == 'desc' else '↑' }}</span>{% endif %}</div>
-              <div role="button" onclick="sortBy('amount')" style="cursor:pointer;text-align:right;display:flex;justify-content:flex-end;align-items:center;gap:8px;">{% if sort_by == 'amount' %}<span style="font-size:0.85rem;color:var(--text-dim);">{{ '↓' if order == 'desc' else '↑' }}</span>{% endif %}Balance</div>
-              <div></div>
-            </div>
-            <form method="post">
-              {% for account in accounts if account.category == 'debt' %}
-              <div class="account-row month-account-row" role="button" tabindex="0" data-idx="{{ account.orig_idx }}" data-account-name="{{ account.name|e }}" data-account-type="{{ account.type or 'Other' }}" data-account-category="{{ account.category or 'debt' }}" data-balance="{{ account.balance|float }}" data-min-payment="{{ account.min_payment|default('', true) }}" data-recurring-amount="{{ account.recurring_amount|default('', true) }}" data-recurring-frequency="{{ account.recurring_frequency or '' }}" data-paid="{{ 'true' if account.paid_this_month else 'false' }}" data-paid1="{{ 'true' if account.paid_this_month else 'false' }}" data-paid2="false" data-date1="" data-date2="" data-last-updated="{{ account.last_updated or '' }}" data-month-status="{{ account.paid_status_by_month|tojson }}" style="border-left:6px solid {{ type_colors.get(account.type, '#64748b') }};grid-template-columns:2fr 1fr 1fr 1fr 0.8fr;cursor:pointer;">
-                <div>
-                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <strong>{{ account.name }}</strong>
-                    <span class="month-status-badge" data-category="{{ account.category }}" data-semi="false" data-paid1-current="{{ 'true' if account.paid_this_month else 'false' }}" data-paid2-current="false" data-balance="{{ account.balance|float }}" style="font-size:0.72rem;font-weight:700;padding:2px 7px;border-radius:999px;letter-spacing:0.03em;"></span>
-                  </div>
-                  {% if account.interest_rate %}
-                    <div style="font-size:0.85rem;color:var(--text-muted);margin-top:3px;">{{ account.interest_rate }}% APR</div>
-                  {% endif %}
-                  {% if account.min_payment %}
-                    <div class="sensitive" style="font-size:0.85rem;color:var(--text-muted);margin-top:2px;">Min: ${{ "%.2f"|format(account.min_payment) }}</div>
-                  {% endif %}
-                  {% if account.last_updated %}
-                    <div style="font-size:0.78rem;color:var(--text-dim);margin-top:2px;">Last updated: {{ account.last_updated[:10] }}</div>
-                  {% endif %}
-                </div>
-                <div style="font-weight:600;color:var(--text-muted);">{{ account.type or 'Other' }}</div>
-                <div style="color:var(--text-muted);">
-                  {% if account.days_until is not none %}
-                    {% if account.days_until == 0 %}
-                      {% set badge_bg = '#dc2626' %}{% set badge_text = 'white' %}{% set due_label = 'Today' %}
-                    {% elif account.days_until <= 3 %}
-                      {% set badge_bg = '#dc2626' %}{% set badge_text = 'white' %}{% set due_label = 'In ' ~ account.days_until ~ ' day' ~ ('s' if account.days_until != 1 else '') %}
-                    {% elif account.days_until <= 7 %}
-                      {% set badge_bg = '#f59e0b' %}{% set badge_text = 'white' %}{% set due_label = 'In ' ~ account.days_until ~ ' days' %}
-                    {% else %}
-                      {% set badge_bg = 'var(--surface)' %}{% set badge_text = 'var(--text-muted)' %}{% set due_label = 'In ' ~ account.days_until ~ ' days' %}
-                    {% endif %}
-                    <div style="font-size:0.8rem;font-weight:700;padding:2px 8px;border-radius:999px;background:{{ badge_bg }};color:{{ badge_text }};display:inline-block;">{{ due_label }}</div>
-                    <div style="font-size:0.78rem;color:var(--text-dim);margin-top:2px;">
-                      {% if account.due_dates_label %}{{ account.due_dates_label }}{% else %}{{ account.next_due_date }}{% endif %}
-                    </div>
-                  {% else %}
-                    {{ account.due_date or '—' }}
-                  {% endif %}
-                  {% if account.last_updated %}
-                    <div style="font-size:0.78rem;color:var(--text-dim);margin-top:2px;">Last updated: {{ account.last_updated[:10] }}</div>
-                  {% endif %}
-                </div>
-                <div style="font-size:0.78rem;color:var(--text-dim);text-align:right;align-self:start;">Open</div>
-                <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
-                  <a href="{{ url_for('account_page', idx=account.orig_idx, return_to='dashboard') }}" style="font-size:0.8rem;color:var(--text-muted);text-decoration:none;display:flex;align-items:center;gap:3px;" title="Edit account" onclick="event.stopPropagation();">✎ Edit</a>
-                </div>
-              </div>
-              {% endfor %}
-            </form>
-          </div>
+          </form>
         {% endif %}
       {% elif page == 'dashboard' %}
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:1rem;flex-wrap:wrap;gap:8px;">
@@ -713,7 +647,7 @@ TEMPLATE = """
                 <input type="number" class="sensitive-input" name="balance" step="0.01" min="0" value="{{ '%.2f'|format(account.balance|float) }}" placeholder="0.00" style="width:100%;padding:8px;border-radius:6px;box-sizing:border-box;" />
               </div>
               <div>
-                <label style="font-weight:600;display:block;margin-bottom:4px;">Minimum payment</label>
+                <label style="font-weight:600;display:block;margin-bottom:4px;">Payment Due</label>
                 <input type="number" name="min_payment" step="0.01" min="0" value="{{ account.min_payment or '' }}" placeholder="0.00" style="width:100%;padding:8px;border-radius:6px;box-sizing:border-box;" />
               </div>
             </div>
@@ -961,7 +895,7 @@ TEMPLATE = """
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
                   <div>
-                    <div class="modal-label" style="margin-bottom:2px;">Minimum payment</div>
+                    <div class="modal-label" style="margin-bottom:2px;">Payment Due</div>
                     <div id="update_min_payment" style="font-weight:700;">—</div>
                   </div>
                   <div>
@@ -1005,6 +939,7 @@ TEMPLATE = """
           </div>
           <div id="updateResult" style="display:none;padding:10px;margin-bottom:8px;border-radius:6px;background:var(--success-bg);color:var(--success-text);font-weight:600;"></div>
           <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+            <a id="updateEditAccountLink" href="#" class="nav-button" style="text-decoration:none;">Edit account</a>
             <button type="button" onclick="closeUpdateModal()" class="btn-cancel">Cancel</button>
             <button type="submit" id="updateSubmitButton" style="padding:8px 10px;border-radius:6px;background:#2563eb;color:white;border:none;cursor:pointer;font-weight:600;">Save</button>
           </div>
@@ -1085,26 +1020,9 @@ TEMPLATE = """
         toggle.setAttribute('aria-expanded', 'false');
       }
 
-      // ── Dashboard tabs ────────────────────────────────────────────────
-      function switchDashTab(tab) {
-        const monthly = document.getElementById('dash-tab-monthly');
-        const outstanding = document.getElementById('dash-tab-outstanding');
-        const btnM = document.getElementById('dash-tab-btn-monthly');
-        const btnO = document.getElementById('dash-tab-btn-outstanding');
-        if (!monthly || !outstanding) return;
-        const isMonthly = tab === 'monthly';
-        monthly.style.display = isMonthly ? '' : 'none';
-        outstanding.style.display = isMonthly ? 'none' : '';
-        btnM.style.background = isMonthly ? '#2563eb' : 'var(--surface-2)';
-        btnM.style.color = isMonthly ? 'white' : 'var(--text-muted)';
-        btnO.style.background = isMonthly ? 'var(--surface-2)' : '#2563eb';
-        btnO.style.color = isMonthly ? 'var(--text-muted)' : 'white';
-        localStorage.setItem('dashTab', tab);
-      }
-
       const MONTH_TABS = {{ month_tabs|tojson }};
       const CURRENT_MONTH_KEY = "{{ current_month|default('') }}";
-      let selectedMonthKey = localStorage.getItem('selectedMonthTab') || CURRENT_MONTH_KEY;
+      let selectedMonthKey = CURRENT_MONTH_KEY;
 
       function monthLabelFor(key) {
         const item = MONTH_TABS.find(m => m.key === key);
@@ -1157,25 +1075,11 @@ TEMPLATE = """
           badge.style.display = text ? 'inline-block' : 'none';
         });
 
-        document.querySelectorAll('.month-tab-btn').forEach(btn => {
-          const active = btn.dataset.month === selectedMonthKey;
-          btn.classList.toggle('current', active);
-          btn.setAttribute('aria-pressed', String(active));
-        });
-
         const monthLabelNodes = document.querySelectorAll('.selected-month-label');
         monthLabelNodes.forEach(node => { node.textContent = monthLabelFor(selectedMonthKey); });
-        localStorage.setItem('selectedMonthTab', selectedMonthKey);
-      }
-
-      function switchMonthTab(monthKey) {
-        selectedMonthKey = monthKey;
-        updateMonthBadges();
       }
 
       (function() {
-        const saved = localStorage.getItem('dashTab') || 'monthly';
-        switchDashTab(saved);
         updateMonthBadges();
       })();
 
@@ -1215,6 +1119,8 @@ TEMPLATE = """
         currentUpdateIdx = idx;
         currentUpdateIsRecurring = category === 'recurring';
         currentUpdateIsSemi = recurringFrequency === 'semi-monthly';
+        const editLink = document.getElementById('updateEditAccountLink');
+        if (editLink) editLink.href = '/account/' + idx + '?return_to=settings';
         const debtFields = document.getElementById('update_debt_fields');
         const singlePaid = document.getElementById('update_paid_single');
         const semiPaid = document.getElementById('update_paid_semi');
@@ -1972,7 +1878,7 @@ async def settings_page(request: Request):
   settings = data.setdefault('settings', {})
 
   if request.method == 'POST':
-    form = await request.form()
+    form = await read_form_data(request)
     action = form.get('action')
     if action == 'update_settings':
       settings['show_zero'] = form.get('show_zero') == '1'
@@ -2050,7 +1956,22 @@ async def settings_page(request: Request):
   all_with_idx = [dict(a, orig_idx=i) for i, a in enumerate(raw_accounts)]
   settings_accounts = sorted([a for a in all_with_idx if not a.get('archived')], key=lambda a: (a.get('name') or '').lower())
   archived_accounts = sorted([a for a in all_with_idx if a.get('archived')], key=lambda a: (a.get('name') or '').lower())
-  return render_template_string(TEMPLATE, page='settings', accounts=settings_accounts, archived_accounts=archived_accounts, total=total, sort_by=sort_by, order=order, type_colors=type_colors, show_zero=show_zero, status=status)
+  return render_template_string(
+    TEMPLATE,
+    page='settings',
+    accounts=settings_accounts,
+    archived_accounts=archived_accounts,
+    total=total,
+    sort_by=sort_by,
+    order=order,
+    type_colors=type_colors,
+    show_zero=show_zero,
+    status=status,
+    month_tabs=[],
+    trend_data=[],
+    current_month='',
+    current_month_label='',
+  )
 
 
 @app.route('/account/{idx}', methods=['GET'])
@@ -2086,7 +2007,26 @@ async def account_page(idx: int, request: Request):
       current = current.replace(year=year, month=month)
 
   return_to = request.query_params.get('return_to', 'settings')
-  return render_template_string(TEMPLATE, page='account_detail', account=account, monthly_totals=monthly_list, idx=idx, return_to=return_to)
+  return render_template_string(
+    TEMPLATE,
+    page='account_detail',
+    account=account,
+    monthly_totals=monthly_list,
+    idx=idx,
+    return_to=return_to,
+    month_tabs=[],
+    trend_data=[],
+    current_month='',
+    current_month_label='',
+    accounts=[],
+    archived_accounts=[],
+    total=0,
+    sort_by='amount',
+    order='desc',
+    type_colors={},
+    show_zero=False,
+    status='',
+  )
 
 
 @app.route('/account/{idx}/update_month', methods=['POST'])
@@ -2096,7 +2036,7 @@ async def update_month(idx: int, request: Request):
   if idx < 0 or idx >= len(accounts):
     abort(404)
   account = accounts[idx]
-  form = await request.form()
+  form = await read_form_data(request)
   raw_text = form.get('monthly_totals', '').strip()
   parsed_entries = []
   if raw_text:
@@ -2361,7 +2301,7 @@ def export_excel():
 
 @app.route('/import', methods=['POST'])
 async def import_data(request: Request):
-  form = await request.form()
+  form = await read_form_data(request)
   f = form.get('save_file')
   if not f:
     return redirect(url_for('settings_page', status='No file selected.'))
@@ -2379,7 +2319,7 @@ async def import_data(request: Request):
 
 @app.route('/import_excel', methods=['POST'])
 async def import_excel(request: Request):
-  form = await request.form()
+  form = await read_form_data(request)
   f = form.get('excel_file')
   if not f:
     return redirect(url_for('settings_page', status='No Excel file selected.'))
@@ -2526,7 +2466,7 @@ def download_history():
 
 @app.route('/import_monthly_totals', methods=['POST'])
 async def import_monthly_totals(request: Request):
-  form = await request.form()
+  form = await read_form_data(request)
   raw_text = form.get('monthly_totals', '').strip()
   if not raw_text:
     return redirect(url_for('settings_page', status='No monthly totals entered'))
@@ -2789,7 +2729,7 @@ async def edit_account(idx: int, request: Request):
   if idx < 0 or idx >= len(accounts):
     abort(404)
   account = accounts[idx]
-  form = await request.form()
+  form = await read_form_data(request)
   name = form.get('name', '').strip()
   typ = form.get('type', 'Other')
   old_name = account.get('name', '')
