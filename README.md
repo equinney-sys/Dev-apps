@@ -60,6 +60,6 @@ If you want remote access from outside your network, use a tunnel service such a
 
 ## Notes
 
-- Debt data is saved locally to `debts.json`.
+- Debt data is saved locally to `debt_tracker.db` using SQLite.
 - Use the main form to edit balances and delete accounts.
 - Use the add-account form to add a new debt entry.

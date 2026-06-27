@@ -8,6 +8,7 @@ from datetime import datetime, date
 from calendar import monthrange
 import csv
 import io
+import sqlite3
 from urllib.parse import urlencode
 from jinja2 import Template
 from fastapi import FastAPI, Request, HTTPException
@@ -20,6 +21,7 @@ from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from openpyxl.utils import get_column_letter
 
 DATA_FILE = "debts.json"
+DB_FILE = os.environ.get("DEBT_TRACKER_DB", "debt_tracker.db")
 
 app = FastAPI()
 
@@ -62,6 +64,40 @@ def render_template_string(template, **context):
 
 def jsonify(data):
     return JSONResponse(data)
+
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_storage():
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS app_state (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                payload TEXT NOT NULL
+            )
+            """
+        )
+        conn.commit()
+        row = conn.execute("SELECT payload FROM app_state WHERE id = 1").fetchone()
+        if row is None:
+            if os.path.exists(DATA_FILE):
+                try:
+                    with open(DATA_FILE, "r", encoding="utf-8") as f:
+                        payload = f.read().strip() or json.dumps({"accounts": []})
+                except OSError:
+                    payload = json.dumps({"accounts": []})
+            else:
+                payload = json.dumps({"accounts": []})
+            conn.execute("INSERT INTO app_state (id, payload) VALUES (1, ?)", (payload,))
+            conn.commit()
+    finally:
+        conn.close()
 
 
 def excel_safe(value):
@@ -216,6 +252,13 @@ TEMPLATE = """
       .settings-account-row { position: relative; overflow: hidden; border-radius: 0.9rem; background: var(--surface); border: 1px solid var(--border); margin-bottom: 0.75rem; }
       .settings-account-inner { display:grid; grid-template-columns: 2fr 1fr; gap: 0.75rem; align-items:center; padding: 0.85rem 1rem; transition: transform 0.2s ease; }
       .settings-account-details { display:flex; flex-direction:column; gap:0.25rem; }
+      .account-hover-wrap { position: relative; }
+      .account-hover-card { position:absolute; left:0; top:calc(100% + 8px); min-width:260px; background:var(--surface); border:1px solid var(--border); border-radius:0.85rem; box-shadow:0 16px 32px rgba(15,23,42,0.18); padding:0.85rem 0.95rem; z-index:25; opacity:0; visibility:hidden; transform:translateY(-6px); transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease; }
+      .account-hover-wrap:hover .account-hover-card { opacity:1; visibility:visible; transform:translateY(0); }
+      .account-hover-card .hover-label { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:700; }
+      .account-hover-card .hover-value { margin-top:0.15rem; font-weight:700; color:var(--text); }
+      .account-name-link { font-weight:600; color:var(--account-link-color); text-decoration:none; }
+      .account-name-link:hover { text-decoration:underline; }
       .settings-account-delete { position:absolute; top:0; right:0; bottom:0; width:84px; display:flex; align-items:center; justify-content:center; background:#ef4444; color:white; font-weight:700; border:none; transform: translateX(100%); transition: transform 0.2s ease; }
       .settings-account-row.swiped .settings-account-inner { transform: translateX(-84px); }
       .settings-account-row.swiped .settings-account-delete { transform: translateX(0); }
@@ -256,15 +299,14 @@ TEMPLATE = """
         <button id="menuToggle" class="menu-toggle" type="button" onclick="toggleMenu()" aria-expanded="false" aria-label="Open navigation menu">☰</button>
         <button id="privacyToggle" class="privacy-toggle" type="button" onclick="togglePrivacyMode()" aria-pressed="false" aria-label="Hide financials">👁</button>
         <div id="navMenu" class="nav-menu" aria-hidden="true">
-          <a class="{% if page == 'dashboard' %}active{% endif %}" href="{{ url_for('index') }}" onclick="closeMenu()">Dashboard</a>
-          <a class="{% if page == 'dashboard' and view_mode == 'list' %}active{% endif %}" href="{{ url_for('index', view='list', sort=sort_by, order=order) }}" onclick="closeMenu()">Accounts</a>
-          <a class="{% if page == 'dashboard' and view_mode == 'chart' %}active{% endif %}" href="{{ url_for('index', view='chart', sort=sort_by, order=order) }}" onclick="closeMenu()">Charts</a>
+          <a class="{% if page == 'tasks' %}active{% endif %}" href="{{ url_for('index') }}" onclick="closeMenu()">Tasks</a>
+          <a class="{% if page == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard_page') }}" onclick="closeMenu()">Dashboard</a>
           <a class="{% if page == 'settings' %}active{% endif %}" href="{{ url_for('settings_page') }}" onclick="closeMenu()">Settings</a>
           <a class="{% if page == 'history' %}active{% endif %}" href="{{ url_for('history_page') }}" onclick="closeMenu()">History</a>
         </div>
       </div>
 
-      {% if page == 'dashboard' %}
+      {% if page == 'tasks' %}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-top:1rem;">
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:1rem;padding:1.1rem 1.25rem;">
             <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.35rem;">Outstanding</div>
@@ -317,7 +359,7 @@ TEMPLATE = """
             </div>
             <form method="post">
               {% for account in accounts %}
-              <div class="account-row month-account-row" data-month-status="{{ account.paid_status_by_month|tojson }}" style="border-left:6px solid {{ type_colors.get(account.type, '#64748b') }};grid-template-columns:2fr 1fr 1fr 1fr 0.8fr;">
+              <div class="account-row month-account-row" role="button" tabindex="0" data-idx="{{ account.orig_idx }}" data-account-name="{{ account.name|e }}" data-account-type="{{ account.type or 'Other' }}" data-account-category="{{ account.category or 'debt' }}" data-balance="{{ account.balance|float }}" data-min-payment="{{ account.min_payment|default('', true) }}" data-recurring-amount="{{ account.recurring_amount|default('', true) }}" data-recurring-frequency="{{ account.recurring_frequency or '' }}" data-paid="{{ 'true' if account.paid_this_month else 'false' }}" data-paid1="{{ 'true' if account.paid_1_this_month else 'false' }}" data-paid2="{{ 'true' if account.paid_2_this_month else 'false' }}" data-date1="{{ account.due_date or '' }}" data-date2="{{ account.due_date_2 or '' }}" data-last-updated="{{ account.last_updated or '' }}" data-month-status="{{ account.paid_status_by_month|tojson }}" style="border-left:6px solid {{ type_colors.get(account.type, '#64748b') }};grid-template-columns:2fr 1fr 1fr 1fr 0.8fr;cursor:pointer;">
                 <div>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                     <strong>{{ account.name }}</strong>
@@ -348,24 +390,10 @@ TEMPLATE = """
                     {{ account.due_date or '—' }}
                   {% endif %}
                 </div>
-                {% if account.category == 'recurring' %}
-                <div style="font-weight:600;text-align:right;">
-                  <span class="sensitive">${{ "%.2f" | format(account.recurring_amount or 0) }}</span>
-                  <span style="font-size:0.78rem;font-weight:400;color:var(--text-muted);">/ {% if account.recurring_frequency == 'semi-monthly' %}2x mo{% elif account.recurring_frequency == 'yearly' %}yr{% elif account.recurring_frequency == 'quarterly' %}qtr{% elif account.recurring_frequency == 'weekly' %}wk{% else %}mo{% endif %}</span>
-                </div>
+                <div style="font-size:0.78rem;color:var(--text-dim);text-align:right;align-self:start;">Open</div>
                 <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
-                  <button type="button" class="save update-account" data-idx="{{ account.orig_idx }}" data-balance="0" data-type="{{ (account.type or 'Other')|e }}" data-paid="{{ 'true' if account.paid_1_this_month else 'false' }}" data-paid2="{{ 'true' if account.paid_2_this_month else 'false' }}" data-category="recurring" data-semi="{{ 'true' if account.recurring_frequency == 'semi-monthly' else 'false' }}" data-date1="{{ account.due_date or '' }}" data-date2="{{ account.due_date_2 or '' }}" data-last-updated="{{ account.last_updated or '' }}" style="padding:0.45rem 0.6rem;border-radius:6px;">Mark paid</button>
-                  <a href="{{ url_for('account_page', idx=account.orig_idx, return_to='dashboard') }}" style="font-size:0.8rem;color:var(--text-muted);text-decoration:none;display:flex;align-items:center;gap:3px;" title="Edit account">✎ Edit</a>
+                  <a href="{{ url_for('account_page', idx=account.orig_idx, return_to='dashboard') }}" style="font-size:0.8rem;color:var(--text-muted);text-decoration:none;display:flex;align-items:center;gap:3px;" title="Edit account" onclick="event.stopPropagation();">✎ Edit</a>
                 </div>
-                {% else %}
-                <div style="font-weight:600;text-align:right;">
-                  {% if account.min_payment %}<span class="sensitive">${{ "%.2f"|format(account.min_payment) }}</span>{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
-                </div>
-                <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
-                  <button type="button" class="save update-account" data-idx="{{ account.orig_idx }}" data-balance="{{ account.balance|float }}" data-type="{{ (account.type or 'Other')|e }}" data-paid="{{ 'true' if account.paid_this_month else 'false' }}" data-paid2="false" data-category="debt" data-semi="false" data-date1="" data-date2="" data-last-updated="{{ account.last_updated or '' }}" style="padding:0.45rem 0.6rem;border-radius:6px;">Update</button>
-                  <a href="{{ url_for('account_page', idx=account.orig_idx, return_to='dashboard') }}" style="font-size:0.8rem;color:var(--text-muted);text-decoration:none;display:flex;align-items:center;gap:3px;" title="Edit account">✎ Edit</a>
-                </div>
-                {% endif %}
               </div>
               {% endfor %}
             </form>
@@ -383,7 +411,7 @@ TEMPLATE = """
             </div>
             <form method="post">
               {% for account in accounts if account.category == 'debt' %}
-              <div class="account-row month-account-row" data-month-status="{{ account.paid_status_by_month|tojson }}" style="border-left:6px solid {{ type_colors.get(account.type, '#64748b') }};grid-template-columns:2fr 1fr 1fr 1fr 0.8fr;">
+              <div class="account-row month-account-row" role="button" tabindex="0" data-idx="{{ account.orig_idx }}" data-account-name="{{ account.name|e }}" data-account-type="{{ account.type or 'Other' }}" data-account-category="{{ account.category or 'debt' }}" data-balance="{{ account.balance|float }}" data-min-payment="{{ account.min_payment|default('', true) }}" data-recurring-amount="{{ account.recurring_amount|default('', true) }}" data-recurring-frequency="{{ account.recurring_frequency or '' }}" data-paid="{{ 'true' if account.paid_this_month else 'false' }}" data-paid1="{{ 'true' if account.paid_this_month else 'false' }}" data-paid2="false" data-date1="" data-date2="" data-last-updated="{{ account.last_updated or '' }}" data-month-status="{{ account.paid_status_by_month|tojson }}" style="border-left:6px solid {{ type_colors.get(account.type, '#64748b') }};grid-template-columns:2fr 1fr 1fr 1fr 0.8fr;cursor:pointer;">
                 <div>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                     <strong>{{ account.name }}</strong>
@@ -422,16 +450,67 @@ TEMPLATE = """
                     <div style="font-size:0.78rem;color:var(--text-dim);margin-top:2px;">Last updated: {{ account.last_updated[:10] }}</div>
                   {% endif %}
                 </div>
-                <div class="sensitive" style="font-weight:600;text-align:right;">${{ "%.2f" | format(account.balance) }}</div>
+                <div style="font-size:0.78rem;color:var(--text-dim);text-align:right;align-self:start;">Open</div>
                 <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
-                  <button type="button" class="save update-account" data-idx="{{ account.orig_idx }}" data-balance="{{ account.balance|float }}" data-type="{{ (account.type or 'Other')|e }}" data-paid="{{ 'true' if account.paid_this_month else 'false' }}" data-paid2="false" data-category="debt" data-semi="false" data-date1="" data-date2="" style="padding:0.45rem 0.6rem;border-radius:6px;">Update</button>
-                  <a href="{{ url_for('account_page', idx=account.orig_idx, return_to='dashboard') }}" style="font-size:0.8rem;color:var(--text-muted);text-decoration:none;display:flex;align-items:center;gap:3px;" title="Edit account">✎ Edit</a>
+                  <a href="{{ url_for('account_page', idx=account.orig_idx, return_to='dashboard') }}" style="font-size:0.8rem;color:var(--text-muted);text-decoration:none;display:flex;align-items:center;gap:3px;" title="Edit account" onclick="event.stopPropagation();">✎ Edit</a>
                 </div>
               </div>
               {% endfor %}
             </form>
           </div>
         {% endif %}
+      {% elif page == 'dashboard' %}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:1rem;flex-wrap:wrap;gap:8px;">
+          <div>
+            <h2 style="margin:0;">Dashboard</h2>
+            <div style="font-size:0.9rem;color:var(--text-muted);margin-top:0.25rem;">High-level overview of your bills and payments</div>
+          </div>
+          <a class="nav-button" href="{{ url_for('index') }}">Open Tasks</a>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-top:1rem;">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:1rem;padding:1rem 1.1rem;">
+            <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.35rem;">Current month due</div>
+            <div class="sensitive" style="font-size:1.55rem;font-weight:800;line-height:1;">${{ "%.2f"|format(remaining_this_month) }}</div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:1rem;padding:1rem 1.1rem;">
+            <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.35rem;">Debt total</div>
+            <div class="sensitive" style="font-size:1.55rem;font-weight:800;line-height:1;">${{ "%.2f"|format(total) }}</div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:1rem;padding:1rem 1.1rem;">
+            <div style="font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.35rem;">Recurring monthly</div>
+            <div class="sensitive" style="font-size:1.55rem;font-weight:800;line-height:1;">${{ "%.2f"|format(monthly_recurring) }}</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1.1fr 0.9fr;gap:0.75rem;margin-top:1rem;">
+          <div class="chart-card" style="margin-top:0;">
+            <h2 style="margin-top:0;">Debt breakdown</h2>
+            <canvas id="debtChart" width="340" height="340" style="max-width:100%;display:block;margin:0 auto;border-radius:16px;background:var(--surface)"></canvas>
+          </div>
+          <div class="chart-card" style="margin-top:0;">
+            <h2 style="margin-top:0;">Snapshot</h2>
+            <div style="display:grid;gap:0.75rem;">
+              <div style="padding:0.9rem;border-radius:0.85rem;border:1px solid var(--border);background:var(--surface);">
+                <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;font-weight:700;">Month</div>
+                <div style="font-size:1.15rem;font-weight:800;margin-top:0.25rem;">{{ current_month_label }}</div>
+              </div>
+              <div style="padding:0.9rem;border-radius:0.85rem;border:1px solid var(--border);background:var(--surface);">
+                <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;font-weight:700;">Open items</div>
+                <div style="font-size:1.15rem;font-weight:800;margin-top:0.25rem;">{{ accounts|length }}</div>
+              </div>
+              <div style="padding:0.9rem;border-radius:0.85rem;border:1px solid var(--border);background:var(--surface);">
+                <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;font-weight:700;">Remaining this month</div>
+                <div class="sensitive" style="font-size:1.15rem;font-weight:800;margin-top:0.25rem;">${{ "%.2f"|format(remaining_this_month) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-card" style="margin-top:1rem;">
+          <h2 style="margin-top:0;">Trend over time</h2>
+          <canvas id="trendChart" width="680" height="260" style="max-width:100%;display:block;margin:0 auto;border-radius:16px;background:var(--surface)"></canvas>
+        </div>
       {% elif page == 'settings' %}
         <div class="settings-card">
           <h2>Settings</h2>
@@ -491,16 +570,27 @@ TEMPLATE = """
               <div class="settings-account-row" data-idx="{{ account.orig_idx }}">
                 <div class="settings-account-inner">
                   <div class="settings-account-details">
-                    <a href="{{ url_for('account_page', idx=account.orig_idx) }}" style="font-weight:600;color:var(--account-link-color);text-decoration:none;">{{ account.name }}</a>
+                    <div class="account-hover-wrap">
+                      <a href="{{ url_for('account_page', idx=account.orig_idx) }}" class="account-name-link">{{ account.name }}</a>
+                      <div class="account-hover-card">
+                        <div>
+                          <div class="hover-label">Last updated</div>
+                          <div class="hover-value">{{ account.last_updated[:10] if account.last_updated else 'No update yet' }}</div>
+                        </div>
+                        <div style="margin-top:0.75rem;">
+                          <div class="hover-label">Minimum monthly payment</div>
+                          <div class="hover-value">{% if account.min_payment %}<span class="sensitive">${{ "%.2f"|format(account.min_payment|float) }}</span>{% else %}—{% endif %}</div>
+                        </div>
+                        <div style="margin-top:0.75rem;">
+                          <div class="hover-label">Outstanding balance</div>
+                          <div class="hover-value">{% if account.category == 'recurring' %}<span class="sensitive">${{ "%.2f"|format(account.recurring_amount or 0) }}</span>{% else %}<span class="sensitive">${{ "%.2f"|format(account.balance) }}</span>{% endif %}</div>
+                        </div>
+                      </div>
+                    </div>
                     <span style="font-size:0.9rem;color:var(--text-muted);">{{ account.type or 'Other' }}{% if account.owner %} · {{ account.owner }}{% endif %}</span>
-                    <div style="font-size:0.85rem;color:var(--text-muted);">{% if account.due_date %}Due {{ account.due_date }}{% endif %}{% if account.interest_rate %} · {{ account.interest_rate }}% APR{% endif %}{% if account.min_payment %} · Min <span class="sensitive">${{ "%.2f"|format(account.min_payment|float) }}</span>{% endif %}</div>
+                    <div style="font-size:0.85rem;color:var(--text-muted);">{% if account.due_date %}Due {{ account.due_date }}{% endif %}{% if account.interest_rate %} · {{ account.interest_rate }}% APR{% endif %}</div>
                   </div>
                   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
-                    {% if account.category == 'recurring' %}
-                      <div class="sensitive" style="font-weight:600;">${{ "%.2f" | format(account.recurring_amount or 0) }}<span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);"> /{{ account.recurring_frequency or 'mo' }}</span></div>
-                    {% else %}
-                      <div class="sensitive" style="font-weight:600;">${{ "%.2f" | format(account.balance) }}</div>
-                    {% endif %}
                     <button type="button" onclick="archiveAccount({{ account.orig_idx }})" style="font-size:0.75rem;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-muted);cursor:pointer;">Archive</button>
                   </div>
                 </div>
@@ -517,7 +607,23 @@ TEMPLATE = """
               <div class="settings-account-row" data-idx="{{ account.orig_idx }}" style="opacity:0.55;">
                 <div class="settings-account-inner">
                   <div class="settings-account-details">
-                    <span style="font-weight:600;color:var(--text);">{{ account.name }}</span>
+                    <div class="account-hover-wrap">
+                      <span class="account-name-link" style="cursor:default;">{{ account.name }}</span>
+                      <div class="account-hover-card">
+                        <div>
+                          <div class="hover-label">Last updated</div>
+                          <div class="hover-value">{{ account.last_updated[:10] if account.last_updated else 'No update yet' }}</div>
+                        </div>
+                        <div style="margin-top:0.75rem;">
+                          <div class="hover-label">Minimum monthly payment</div>
+                          <div class="hover-value">{% if account.min_payment %}<span class="sensitive">${{ "%.2f"|format(account.min_payment|float) }}</span>{% else %}—{% endif %}</div>
+                        </div>
+                        <div style="margin-top:0.75rem;">
+                          <div class="hover-label">Outstanding balance</div>
+                          <div class="hover-value">{% if account.category == 'recurring' %}<span class="sensitive">${{ "%.2f"|format(account.recurring_amount or 0) }}</span>{% else %}<span class="sensitive">${{ "%.2f"|format(account.balance) }}</span>{% endif %}</div>
+                        </div>
+                      </div>
+                    </div>
                     <span style="font-size:0.9rem;color:var(--text-muted);">{{ account.type or 'Other' }}{% if account.owner %} · {{ account.owner }}{% endif %}</span>
                   </div>
                   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
@@ -728,7 +834,7 @@ TEMPLATE = """
       {% endif %}
 
       <div class="footer">
-        <p>Debt values are stored locally in <code style="background:var(--code-bg);padding:2px 6px;border-radius:4px;font-size:0.9em;border:1px solid var(--border);">debts.json</code>.</p>
+        <p>Debt values are stored locally in <code style="background:var(--code-bg);padding:2px 6px;border-radius:4px;font-size:0.9em;border:1px solid var(--border);">debt_tracker.db</code>.</p>
       </div>
     </div>
 
@@ -838,19 +944,39 @@ TEMPLATE = """
         <form id="updateForm" method="post" onsubmit="submitUpdate(event)">
           <div id="update_debt_fields">
             <div style="margin-bottom:8px;">
-              <label class="modal-label">Current balance</label>
-              <div id="update_current_balance" class="modal-display">$0.00</div>
+              <div class="modal-display" id="update_summary" style="display:grid;gap:0.45rem;">
+                <div>
+                  <div class="modal-label" style="margin-bottom:2px;">Account</div>
+                  <div id="update_account_name" style="font-weight:700;">-</div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                  <div>
+                    <div class="modal-label" style="margin-bottom:2px;">Type</div>
+                    <div id="update_account_type" style="font-weight:700;">-</div>
+                  </div>
+                  <div>
+                    <div class="modal-label" style="margin-bottom:2px;">Last updated</div>
+                    <div id="update_last_updated" style="font-weight:700;">No update yet</div>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                  <div>
+                    <div class="modal-label" style="margin-bottom:2px;">Minimum payment</div>
+                    <div id="update_min_payment" style="font-weight:700;">—</div>
+                  </div>
+                  <div>
+                    <div class="modal-label" style="margin-bottom:2px;">Outstanding balance</div>
+                    <div id="update_current_balance" style="font-weight:700;">$0.00</div>
+                  </div>
+                </div>
+              </div>
             </div>
             <div style="margin-bottom:8px;">
-              <label class="modal-label">Last payment update</label>
-              <div id="update_last_updated" class="modal-display">No update yet</div>
+              <label class="modal-label" for="update_balance">Update balance</label>
+              <input id="update_balance" name="new_balance" type="number" step="0.01" min="0" value="0.00" class="modal-input" />
             </div>
             <div style="margin-bottom:8px;">
-              <label class="modal-label" for="update_new_balance">New balance</label>
-              <input id="update_new_balance" name="new_balance" type="number" step="0.01" min="0" value="0.00" class="modal-input" />
-            </div>
-            <div style="margin-bottom:8px;">
-              <label class="modal-label">Type</label>
+              <label class="modal-label">Category</label>
               <select id="update_type" name="new_type" class="modal-select">
                 <option value="Credit Card">Credit Card</option>
                 <option value="Car Loan">Car Loan</option>
@@ -1037,17 +1163,6 @@ TEMPLATE = """
           btn.setAttribute('aria-pressed', String(active));
         });
 
-        document.querySelectorAll('.update-account').forEach(btn => {
-          const row = btn.closest('.account-row');
-          if (!row) return;
-          let status = {};
-          try { status = JSON.parse(row.dataset.monthStatus || '{}'); } catch (_) { status = {}; }
-          const monthInfo = status[selectedMonthKey] || {};
-          const semi = btn.dataset.semi === 'true';
-          btn.dataset.paid = monthInfo.paid1 === true ? 'true' : 'false';
-          btn.dataset.paid2 = semi && monthInfo.paid2 === true ? 'true' : 'false';
-        });
-
         const monthLabelNodes = document.querySelectorAll('.selected-month-label');
         monthLabelNodes.forEach(node => { node.textContent = monthLabelFor(selectedMonthKey); });
         localStorage.setItem('selectedMonthTab', selectedMonthKey);
@@ -1082,23 +1197,42 @@ TEMPLATE = """
         return d.toLocaleDateString(undefined, {month: 'long', day: 'numeric', year: 'numeric'});
       }
 
-      function openUpdate(idx, balance, type, paid, paid2, category, isSemi, date1, date2, lastUpdated) {
+      function openUpdateFromRow(row) {
+        if (!row) return;
+        const idx = row.dataset.idx;
+        const category = row.dataset.accountCategory || 'debt';
+        const type = row.dataset.accountType || 'Other';
+        const balance = parseFloat(row.dataset.balance || '0') || 0;
+        const paid = row.dataset.paid || 'false';
+        const paid2 = row.dataset.paid2 || 'false';
+        const date1 = row.dataset.date1 || '';
+        const date2 = row.dataset.date2 || '';
+        const lastUpdated = row.dataset.lastUpdated || '';
+        const minPayment = row.dataset.minPayment || '';
+        const recurringAmount = row.dataset.recurringAmount || '';
+        const recurringFrequency = row.dataset.recurringFrequency || '';
+
         currentUpdateIdx = idx;
         currentUpdateIsRecurring = category === 'recurring';
-        currentUpdateIsSemi = isSemi === 'true';
+        currentUpdateIsSemi = recurringFrequency === 'semi-monthly';
         const debtFields = document.getElementById('update_debt_fields');
         const singlePaid = document.getElementById('update_paid_single');
         const semiPaid = document.getElementById('update_paid_semi');
         const title = document.getElementById('updateModalTitle');
+        document.getElementById('update_account_name').textContent = row.dataset.accountName || '-';
+        document.getElementById('update_account_type').textContent = type || 'Other';
+        document.getElementById('update_current_balance').textContent = '$' + balance.toFixed(2);
+        document.getElementById('update_last_updated').textContent = formatIsoDate(lastUpdated);
+        document.getElementById('update_min_payment').innerHTML = minPayment ? '$' + parseFloat(minPayment).toFixed(2) : '—';
         if (currentUpdateIsRecurring) {
-          title.textContent = 'Mark payment';
-          debtFields.style.display = 'none';
+          title.textContent = 'Update recurring payment';
+          debtFields.style.display = 'block';
           if (currentUpdateIsSemi) {
             singlePaid.style.display = 'none';
             semiPaid.style.display = 'flex';
             document.getElementById('update_date1_label').textContent = date1 || '?';
             document.getElementById('update_date2_label').textContent = date2 || '?';
-            document.getElementById('update_mark_paid_1').checked = (paid === 'true');
+            document.getElementById('update_mark_paid_1').checked = (paid === 'true' || row.dataset.paid1 === 'true');
             const cb2 = document.getElementById('update_mark_paid_2');
             if (cb2) cb2.checked = (paid2 === 'true');
           } else {
@@ -1108,23 +1242,17 @@ TEMPLATE = """
             document.getElementById('update_paid_month_label').textContent = monthLabelFor(selectedMonthKey);
           }
         } else {
-          title.textContent = 'Update balance';
+          title.textContent = 'Update debt';
           debtFields.style.display = 'block';
           singlePaid.style.display = 'block';
           semiPaid.style.display = 'none';
-          document.getElementById('update_current_balance').textContent = '$' + parseFloat(balance || 0).toFixed(2);
-          document.getElementById('update_last_updated').textContent = formatIsoDate(lastUpdated);
-          document.getElementById('update_new_balance').value = parseFloat(balance || 0).toFixed(2);
+          document.getElementById('update_balance').value = balance.toFixed(2);
           document.getElementById('update_type').value = type || 'Other';
           document.getElementById('update_mark_paid').checked = (paid === 'true');
           document.getElementById('update_paid_month_label').textContent = monthLabelFor(selectedMonthKey);
         }
         document.getElementById('updateResult').style.display = 'none';
         document.getElementById('updateModal').style.display = 'flex';
-        if (!currentUpdateIsRecurring) {
-          const lastUpdatedBox = document.getElementById('update_last_updated');
-          if (lastUpdatedBox) lastUpdatedBox.textContent = formatIsoDate(lastUpdated);
-        }
       }
       function closeUpdateModal(){
         document.getElementById('updateModal').style.display = 'none';
@@ -1145,7 +1273,7 @@ TEMPLATE = """
         if (currentUpdateIsSemi) payload.mark_paid_2 = markPaid2;
         payload.target_month = selectedMonthKey;
         if (!currentUpdateIsRecurring) {
-          payload.new_balance = parseFloat(document.getElementById('update_new_balance').value) || 0;
+          payload.new_balance = parseFloat(document.getElementById('update_balance').value) || 0;
           payload.new_type = document.getElementById('update_type').value || 'Other';
         }
         fetch('/update/' + currentUpdateIdx, {
@@ -1159,7 +1287,7 @@ TEMPLATE = """
           resultBox.textContent = currentUpdateIsRecurring ? 'Payment status saved.' : `Balance updated. Current outstanding: $${parseFloat(data.balance).toFixed(2)}`;
           resultBox.style.display = 'block';
           if (!currentUpdateIsRecurring) {
-            document.getElementById('update_current_balance').textContent = '$' + parseFloat(data.balance).toFixed(2);
+            document.getElementById('update_balance').value = parseFloat(data.balance).toFixed(2);
           }
           setTimeout(() => { closeUpdateModal(); window.location.reload(); }, 1200);
         }).catch(() => {
@@ -1403,20 +1531,17 @@ TEMPLATE = """
         renderTrendChart();
         enableSettingsListSwipe();
         wireDueDateSelect('detail_due_date_select', 'detail_due_date_custom');
-        document.querySelectorAll('.update-account').forEach(button => {
-          button.addEventListener('click', () => {
-            openUpdate(
-              button.dataset.idx,
-              parseFloat(button.dataset.balance) || 0,
-              button.dataset.type || 'Other',
-              button.dataset.paid || 'false',
-              button.dataset.paid2 || 'false',
-              button.dataset.category || 'debt',
-              button.dataset.semi || 'false',
-              button.dataset.date1 || '',
-              button.dataset.date2 || '',
-              button.dataset.lastUpdated || ''
-            );
+        document.querySelectorAll('.month-account-row').forEach(row => {
+          const openRow = () => openUpdateFromRow(row);
+          row.addEventListener('click', function(event) {
+            if (event.target.closest('a, button, input, select, textarea')) return;
+            openRow();
+          });
+          row.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              openRow();
+            }
           });
         });
       });
@@ -1428,18 +1553,29 @@ TEMPLATE = """
 
 
 def load_data():
-    if os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except (ValueError, json.JSONDecodeError):
-            pass
-    return {"accounts": []}
+    init_storage()
+    conn = get_db_connection()
+    try:
+        row = conn.execute("SELECT payload FROM app_state WHERE id = 1").fetchone()
+        if row and row["payload"]:
+            try:
+                return json.loads(row["payload"])
+            except (ValueError, json.JSONDecodeError):
+                return {"accounts": []}
+        return {"accounts": []}
+    finally:
+        conn.close()
 
 
 def save_data(data):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+    init_storage()
+    payload = json.dumps(data, indent=2)
+    conn = get_db_connection()
+    try:
+        conn.execute("UPDATE app_state SET payload = ? WHERE id = 1", (payload,))
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def parse_timestamp(value):
@@ -1737,7 +1873,96 @@ async def index(request: Request):
       last_total = monthly_totals.get(month_key, last_total)
       trend_data.append({'month': month_key, 'total': last_total})
 
-  return render_template_string(TEMPLATE, page='dashboard', accounts=accounts, total=total, monthly_recurring=monthly_recurring, remaining_this_month=remaining_this_month, sort_by=sort_by, order=order, view_mode=view_mode, type_colors=type_colors, show_zero=show_zero, trend_data=trend_data, current_month=current_month, current_month_label=current_month_label, previous_month=previous_month, next_month=next_month, month_tabs=month_tabs, hide_paid=hide_paid)
+  return render_template_string(TEMPLATE, page='tasks', accounts=accounts, total=total, monthly_recurring=monthly_recurring, remaining_this_month=remaining_this_month, sort_by=sort_by, order=order, view_mode=view_mode, type_colors=type_colors, show_zero=show_zero, trend_data=trend_data, current_month=current_month, current_month_label=current_month_label, previous_month=previous_month, next_month=next_month, month_tabs=month_tabs, hide_paid=hide_paid)
+
+
+@app.route('/dashboard', methods=['GET'])
+async def dashboard_page(request: Request):
+  data = load_data()
+  raw_accounts = data.get("accounts", [])
+  today = datetime.now().date()
+  current_month = today.strftime('%Y-%m')
+  current_month_label = today.strftime('%B %Y')
+
+  accounts = [dict(a, orig_idx=i) for i, a in enumerate(raw_accounts) if not a.get('archived')]
+  total = sum(a.get("balance", 0) for a in accounts if a.get('category', 'debt') == 'debt')
+  remaining_this_month = 0
+  for a in raw_accounts:
+    if a.get('archived'):
+      continue
+    if a.get('category') == 'recurring':
+      freq = a.get('recurring_frequency', 'monthly')
+      amt = float(a.get('recurring_amount', 0) or 0)
+      if freq == 'semi-monthly':
+        if a.get('paid_month') != current_month:
+          remaining_this_month += amt
+        if a.get('paid_month_2') != current_month:
+          remaining_this_month += amt
+      else:
+        if a.get('paid_month') != current_month:
+          remaining_this_month += amt
+    elif a.get('category', 'debt') == 'debt':
+      mp = float(a.get('min_payment', 0) or 0)
+      if mp > 0 and a.get('paid_month') != current_month:
+        remaining_this_month += mp
+
+  monthly_recurring = sum(
+    (float(a.get('recurring_amount', 0) or 0) if a.get('category') == 'recurring' else 0)
+    for a in raw_accounts if not a.get('archived')
+  )
+
+  type_colors = {
+      'Credit Card': '#ef4444',
+      'Car Loan': '#10b981',
+      'Mortgage': '#2563eb',
+      'Student Loan': '#f59e0b',
+      'Personal Loan': '#8b5cf6',
+      'Subscription': '#06b6d4',
+      'Streaming': '#f43f5e',
+      'Utility': '#84cc16',
+      'Insurance': '#fb923c',
+      'Other': '#64748b'
+  }
+
+  timeline = []
+  for account in raw_accounts:
+    for entry in account.get('history', []):
+      ts = entry.get('timestamp')
+      if not ts:
+        continue
+      try:
+        dt = datetime.fromisoformat(ts)
+      except ValueError:
+        continue
+      timeline.append({
+        'timestamp': dt,
+        'account_name': entry.get('account_name', account.get('name', 'Unknown')),
+        'balance': float(entry.get('amount', 0) or 0)
+      })
+  timeline.sort(key=lambda e: e['timestamp'])
+
+  trend_data = []
+  if timeline:
+    monthly_totals = {}
+    current_balances = {}
+    for entry in timeline:
+      month_key = entry['timestamp'].strftime('%Y-%m')
+      current_balances[entry['account_name']] = entry['balance']
+      monthly_totals[month_key] = sum(current_balances.values())
+    first_month = min(monthly_totals.keys())
+    last_month = max(monthly_totals.keys())
+    start = datetime.strptime(first_month + '-01', '%Y-%m-%d')
+    end = datetime.strptime(last_month + '-01', '%Y-%m-%d')
+    month = start
+    last_total = 0
+    while month <= end:
+      month_key = month.strftime('%Y-%m')
+      if month_key in monthly_totals:
+        last_total = monthly_totals[month_key]
+      trend_data.append({'month': month_key, 'total': last_total})
+      month = datetime(month.year + (month.month // 12), (month.month % 12) + 1, 1)
+
+  return render_template_string(TEMPLATE, page='dashboard', accounts=accounts, total=total, monthly_recurring=monthly_recurring, remaining_this_month=remaining_this_month, type_colors=type_colors, trend_data=trend_data, current_month=current_month, current_month_label=current_month_label)
 
 
 @app.route('/settings', methods=['GET', 'POST'])
@@ -2750,6 +2975,7 @@ def open_browser(url):
     webbrowser.open(url)
 
 if __name__ == "__main__":
+    init_storage()
     port = int(os.environ.get("PORT", find_free_port(5000, 5010)))
     url = f"http://127.0.0.1:{port}"
     threading.Timer(1.0, lambda: open_browser(url)).start()
